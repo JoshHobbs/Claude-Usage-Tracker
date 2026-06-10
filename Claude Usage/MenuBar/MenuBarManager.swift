@@ -394,8 +394,9 @@ class MenuBarManager: NSObject, ObservableObject {
         // 4. Recreate popover with new profile data
         recreatePopover()
 
-        // 5. Trigger immediate refresh ONLY if profile has usage credentials
-        if profile.hasUsageCredentials {
+        // 5. Trigger immediate refresh ONLY if credentials are available
+        //    (profile-local OR system Keychain CLI token — see #250).
+        if profile.hasUsageCredentialsForDisplay {
             self.lastRefreshTriggerTime = Date()
             refreshUsage()
         } else {
@@ -429,8 +430,9 @@ class MenuBarManager: NSObject, ObservableObject {
             return
         }
 
-        // Check if active profile has usage credentials (not just CLI)
-        let hasUsageCredentials = profileManager.activeProfile?.hasUsageCredentials ?? false
+        // Check if active profile has usage credentials, honoring the system
+        // Keychain CLI fallback so CLI-only profiles keep their icon (see #250).
+        let hasUsageCredentials = profileManager.activeProfile?.hasUsageCredentialsForDisplay ?? false
 
         // If no usage credentials, use an empty config (will show default logo)
         let displayConfig: MenuBarIconConfiguration
@@ -789,8 +791,8 @@ class MenuBarManager: NSObject, ObservableObject {
             guard let self = self else { return }
 
             Task { @MainActor in
-                // Check if active profile has usage credentials
-                guard let profile = self.profileManager.activeProfile, profile.hasUsageCredentials else {
+                // Check if active profile has usage credentials (incl. system Keychain CLI fallback, #250)
+                guard let profile = self.profileManager.activeProfile, profile.hasUsageCredentialsForDisplay else {
                     LoggingService.shared.logInfo("Credentials changed but no usage credentials - showing default logo")
 
                     // Reconfigure menu bar to show default logo
@@ -939,22 +941,8 @@ class MenuBarManager: NSObject, ObservableObject {
     /// before the API service has a chance to discover system-level credentials.
     private func hasAnyAvailableCredentials() -> Bool {
         guard let profile = profileManager.activeProfile else { return false }
-
-        // Profile-local credentials (Claude.ai, API Console, saved CLI OAuth)
-        if profile.hasUsageCredentials { return true }
-
-        // Fall back to system Keychain CLI credentials
-        do {
-            if let systemCreds = try ClaudeCodeSyncService.shared.readSystemCredentials(),
-               !ClaudeCodeSyncService.shared.isTokenExpired(systemCreds),
-               ClaudeCodeSyncService.shared.extractAccessToken(from: systemCreds) != nil {
-                return true
-            }
-        } catch {
-            LoggingService.shared.log("MenuBarManager.hasAnyAvailableCredentials: system keychain check failed: \(error.localizedDescription)")
-        }
-
-        return false
+        // Profile-local credentials OR a valid system Keychain CLI token.
+        return profile.hasUsageCredentialsForDisplay
     }
 
     private func setupMultiProfileMode() {
@@ -1170,7 +1158,7 @@ class MenuBarManager: NSObject, ObservableObject {
     private func setupSingleProfileMode() {
         guard let profile = profileManager.activeProfile else { return }
 
-        let hasUsageCredentials = profile.hasUsageCredentials
+        let hasUsageCredentials = profile.hasUsageCredentialsForDisplay
         let config = profile.iconConfig
 
         // If no usage credentials, create empty config to show default logo

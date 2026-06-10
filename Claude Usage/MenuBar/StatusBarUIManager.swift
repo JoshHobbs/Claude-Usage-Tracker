@@ -613,8 +613,10 @@ final class StatusBarUIManager {
         let profile = ProfileManager.shared.activeProfile
         let config = profile?.iconConfig ?? .default
 
-        // Check if we should show default logo (no usage credentials OR no enabled metrics)
-        let hasUsageCredentials = profile?.hasUsageCredentials ?? false
+        // Check if we should show default logo (no usage credentials OR no enabled metrics).
+        // Honor the system Keychain CLI fallback so CLI-only profiles don't drop to the
+        // default logo when their cached token lapses while data still flows (see #250).
+        let hasUsageCredentials = profile?.hasUsageCredentialsForDisplay ?? false
         if !hasUsageCredentials || config.enabledMetrics.isEmpty {
             // Show default app logo
             if let statusItem = statusItems[.session],  // We use .session as placeholder key

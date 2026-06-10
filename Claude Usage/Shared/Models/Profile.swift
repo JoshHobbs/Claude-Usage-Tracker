@@ -115,6 +115,19 @@ struct Profile: Codable, Identifiable, Equatable {
         hasClaudeAI || hasAPIConsole || hasValidCLIOAuth
     }
 
+    /// Credentials check for *rendering* the menu bar icon.
+    ///
+    /// Unlike `hasUsageCredentials`, this also honors a valid system Keychain CLI
+    /// token — exactly like the data-fetch path (`ClaudeAPIService.getAuthentication`).
+    /// Claude Code rotates the system token on its own (~8h) cadence without
+    /// refreshing this profile's cached copy, so for CLI-only profiles the cached
+    /// `cliCredentialsJSON` lapses while usage data still flows. Gating the icon on
+    /// the narrow check made the menu bar silently drop to the default logo even
+    /// though the popover showed live usage. See issue #250.
+    var hasUsageCredentialsForDisplay: Bool {
+        hasUsageCredentials || ClaudeCodeSyncService.shared.hasValidSystemCLICredentials
+    }
+
     /// True if profile has CLI OAuth credentials that are not expired
     var hasValidCLIOAuth: Bool {
         guard let cliJSON = cliCredentialsJSON else { return false }

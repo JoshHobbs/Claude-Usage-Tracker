@@ -599,6 +599,25 @@ class ClaudeCodeSyncService {
         return Date() > expiryDate
     }
 
+    /// True if the system Keychain holds a valid (non-expired) Claude Code CLI token.
+    ///
+    /// Mirrors the fallback in `ClaudeAPIService.getAuthentication()`. These CLI
+    /// credentials are global (written by `claude login` / rotated by Claude Code),
+    /// not profile-local, so this is the source of truth for the system-Keychain
+    /// branch used by both the refresh path and the icon-render path (see #250).
+    var hasValidSystemCLICredentials: Bool {
+        do {
+            if let systemCreds = try readSystemCredentials(),
+               !isTokenExpired(systemCreds),
+               extractAccessToken(from: systemCreds) != nil {
+                return true
+            }
+        } catch {
+            LoggingService.shared.log("ClaudeCodeSyncService.hasValidSystemCLICredentials: system keychain check failed: \(error.localizedDescription)")
+        }
+        return false
+    }
+
     // MARK: - Auto Re-sync Before Switching
 
     /// Re-syncs credentials from system Keychain before profile switching
