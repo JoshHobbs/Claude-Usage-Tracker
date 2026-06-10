@@ -935,13 +935,11 @@ class MenuBarManager: NSObject, ObservableObject {
         return statusBarUIManager?.hasValidStatusBar ?? false
     }
 
-    /// Checks if ANY credentials are available for the active profile, including
-    /// system Keychain CLI credentials. Mirrors the fallback logic in
-    /// `ClaudeAPIService.getAuthentication()` so the refresh path isn't gated off
-    /// before the API service has a chance to discover system-level credentials.
+    /// Whether the active profile has any usable credentials (profile-local or a
+    /// valid system Keychain CLI token). Convenience wrapper over
+    /// `Profile.hasUsageCredentialsForDisplay` that also unwraps the active profile.
     private func hasAnyAvailableCredentials() -> Bool {
         guard let profile = profileManager.activeProfile else { return false }
-        // Profile-local credentials OR a valid system Keychain CLI token.
         return profile.hasUsageCredentialsForDisplay
     }
 
